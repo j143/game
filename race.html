@@ -354,48 +354,48 @@
             nitroBar: null
         };
         setTimeout(() => { els.nitroBar = document.getElementById('nitro-bar'); }, 0);
-                // --- CAR SELECTION UI ---
-                function renderCarOptions() {
-                    els.carOptions.innerHTML = '';
-                    CAR_STATS.forEach((car, idx) => {
-                        const div = document.createElement('div');
-                        div.className = 'car-option';
-                        div.style.cssText = `background: ${car.color}; border-radius: 16px; padding: 1rem 0.7rem; width: 110px; box-shadow: 0 2px 0 #bbb; cursor: pointer; border: 3px solid transparent; display: flex; flex-direction: column; align-items: center;`;
-                        div.innerHTML = `<div style='width:48px;height:32px;background:${car.color};border-radius:10px 10px 16px 16px/16px 16px 10px 10px;box-shadow:0 2px 0 #333; margin-bottom: 0.5rem;'></div>
-                        <b style='color:#222;font-size:1.1em;'>${car.name}</b>
-                        <span style='font-size:0.9em;'>${car.desc}</span>
-                        <div style='font-size:0.8em;margin-top:0.5em;'>
-                            <span>🚀${car.speed}</span> <span>⚡${car.accel}</span> <span>🎯${car.handling}</span> <span>💥${car.nitro}</span>
-                        </div>`;
-                        div.onclick = () => {
-                            selectedCarIdx = idx;
-                            Array.from(els.carOptions.children).forEach((c, i) => c.style.borderColor = i === idx ? '#1CB0F6' : 'transparent');
-                            els.carConfirm.disabled = false;
-                        };
-                        els.carOptions.appendChild(div);
-                    });
-                }
-                renderCarOptions();
-                els.carConfirm.onclick = () => {
-                    if (selectedCarIdx === null) return;
-                    // Set player car stats
-                    const car = CAR_STATS[selectedCarIdx];
-                    players.p1.color = car.color;
-                    players.p1.label = car.name.toUpperCase();
-                    CONFIG.maxSpeed = car.speed;
-                    players.p1.accel = car.accel;
-                    players.p1.handling = car.handling;
-                    players.p1.nitro = car.nitro;
-                    players.p1.nitroMax = Math.round(car.nitro * 25 + 75); // scale to 100-175
-                    players.p1.nitro = players.p1.nitroMax;
-                    // Hide car select, show lobby
-                    els.carSelect.classList.add('hidden');
-                    els.lobby.classList.remove('hidden');
-                };
 
-                // Hide lobby until car is picked
-                els.lobby.classList.add('hidden');
-                els.carSelect.classList.remove('hidden');
+        // --- CAR SELECTION UI ---
+        function renderCarOptions() {
+            els.carOptions.innerHTML = '';
+            CAR_STATS.forEach((car, idx) => {
+                const div = document.createElement('div');
+                div.className = 'car-option';
+                div.style.cssText = `background: ${car.color}; border-radius: 16px; padding: 1rem 0.7rem; width: 110px; box-shadow: 0 2px 0 #bbb; cursor: pointer; border: 3px solid transparent; display: flex; flex-direction: column; align-items: center;`;
+                div.innerHTML = `<div style='width:48px;height:32px;background:${car.color};border-radius:10px 10px 16px 16px/16px 16px 10px 10px;box-shadow:0 2px 0 #333; margin-bottom: 0.5rem;'></div>
+                <b style='color:#222;font-size:1.1em;'>${car.name}</b>
+                <span style='font-size:0.9em;'>${car.desc}</span>
+                <div style='font-size:0.8em;margin-top:0.5em;'>
+                    <span>🚀${car.speed}</span> <span>⚡${car.accel}</span> <span>🎯${car.handling}</span> <span>💥${car.nitro}</span>
+                </div>`;
+                div.onclick = () => {
+                    selectedCarIdx = idx;
+                    Array.from(els.carOptions.children).forEach((c, i) => c.style.borderColor = i === idx ? '#1CB0F6' : 'transparent');
+                    els.carConfirm.disabled = false;
+                };
+                els.carOptions.appendChild(div);
+            });
+        }
+        renderCarOptions();
+        els.carConfirm.onclick = () => {
+            if (selectedCarIdx === null) return;
+            // Set player car stats
+            const car = CAR_STATS[selectedCarIdx];
+            players.p1.color = car.color;
+            players.p1.label = car.name.toUpperCase();
+            CONFIG.maxSpeed = car.speed;
+            players.p1.accel = car.accel;
+            players.p1.handling = car.handling;
+            players.p1.nitro = car.nitro;
+            players.p1.nitroMax = Math.round(car.nitro * 25 + 75); // scale to 100-175
+            players.p1.nitro = players.p1.nitroMax;
+            // Hide car select, show lobby
+            els.carSelect.classList.add('hidden');
+            els.lobby.classList.remove('hidden');
+        };
+        // Hide lobby until car is picked
+        els.lobby.classList.add('hidden');
+        els.carSelect.classList.remove('hidden');
         
         const ctx = els.canvas.getContext('2d');
 
