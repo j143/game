@@ -227,27 +227,31 @@
 </head>
 <body>
 
+
+    <!-- CAR SELECTION -->
+    <div id="car-select" class="card">
+        <h1>Choose Your Car</h1>
+        <div id="car-options" style="display: flex; gap: 1.2rem; justify-content: center; flex-wrap: wrap; margin-bottom: 1.5rem;"></div>
+        <button id="car-confirm" class="btn btn-primary" disabled>Confirm Selection</button>
+    </div>
+
     <!-- LOBBY -->
-    <div id="lobby" class="card">
+    <div id="lobby" class="card hidden">
         <h1>Duo Racer</h1>
         <p>Speed learning? No, just speed.</p>
-        
         <!-- Loading State -->
         <div id="loading-panel">
             <p style="color: var(--duo-blue);">Connecting to satellite...</p>
         </div>
-
         <!-- Main Menu -->
         <div id="main-menu" class="hidden">
             <button id="single-player-btn" class="btn btn-yellow">Practice Solo</button>
             <div class="divider"></div>
-            
             <div style="margin-bottom: 20px;">
                 <p style="margin-bottom: 10px; font-size: 0.9rem;">MULTIPLAYER</p>
                 <div class="id-display" id="my-peer-id">----</div>
                 <p style="margin-bottom: 0; font-size: 0.8rem; margin-top: 5px;">Your Room Code</p>
             </div>
-
             <div class="input-group">
                 <input type="text" id="friend-id-input" placeholder="ENTER FRIEND'S CODE" maxlength="4">
             </div>
@@ -264,6 +268,12 @@
             </div>
             <div class="progress-track"><div id="p1-bar" class="progress-fill"></div></div>
             <div class="progress-track"><div id="p2-bar" class="progress-fill"></div></div>
+            <div style="margin-top:10px;">
+                <div style="font-size:0.85rem;font-weight:900;color:#b0b0b0;text-transform:uppercase;letter-spacing:0.5px;">Nitro</div>
+                <div class="progress-track" style="height:14px;background:#e0e7ef;">
+                    <div id="nitro-bar" class="progress-fill" style="background:#FFC800;width:0%;transition:width 0.2s;"></div>
+                </div>
+            </div>
         </div>
         <canvas id="gameCanvas"></canvas>
         <div class="control-hint">Tap / Up Arrow to Accelerate &bull; Left/Right to Steer</div>
@@ -280,10 +290,17 @@
 
     <script>
         // --- CONFIGURATION ---
+        const CAR_STATS = [
+            { name: "Sprinter", color: "#58CC02", speed: 22, accel: 0.5, handling: 6, nitro: 2.5, desc: "Balanced all-rounder." },
+            { name: "Blaze", color: "#FF4B4B", speed: 25, accel: 0.38, handling: 5, nitro: 3.2, desc: "Fastest top speed, weak handling." },
+            { name: "Drifter", color: "#1CB0F6", speed: 20, accel: 0.6, handling: 8, nitro: 2.0, desc: "Best handling, quick start." },
+            { name: "NitroX", color: "#FFC800", speed: 21, accel: 0.45, handling: 6, nitro: 4.0, desc: "Huge nitro boost!" }
+        ];
+        let selectedCarIdx = null;
         const CONFIG = {
             roadWidthPercent: 0.5,
             totalDistance: 6000,
-            maxSpeed: 22,
+            maxSpeed: 22, // Will be overwritten by car
             colors: {
                 grassLight: "#8DE356",
                 grassDark: "#82D64D", // Slight striping
@@ -304,8 +321,8 @@
 
         // Player State
         let players = {
-            p1: { x: 0, distance: 0, speed: 0, color: '#58CC02', label: 'YOU' }, // Green
-            p2: { x: 0, distance: 0, speed: 0, color: '#1CB0F6', label: 'RIVAL' }  // Blue
+            p1: { x: 0, distance: 0, speed: 0, color: '#58CC02', label: 'YOU', nitro: 0, nitroMax: 100, nitroActive: false, nitroTimer: 0 }, // Green
+            p2: { x: 0, distance: 0, speed: 0, color: '#1CB0F6', label: 'RIVAL', nitro: 0, nitroMax: 100, nitroActive: false, nitroTimer: 0 }  // Blue
         };
         let me = 'p1';
         let them = 'p2';
@@ -318,6 +335,9 @@
 
         // DOM
         const els = {
+            carSelect: document.getElementById('car-select'),
+            carOptions: document.getElementById('car-options'),
+            carConfirm: document.getElementById('car-confirm'),
             lobby: document.getElementById('lobby'),
             loading: document.getElementById('loading-panel'),
             menu: document.getElementById('main-menu'),
@@ -327,8 +347,52 @@
             joinBtn: document.getElementById('join-btn'),
             friendInput: document.getElementById('friend-id-input'),
             p1Bar: document.getElementById('p1-bar'),
-            p2Bar: document.getElementById('p2-bar')
+            p2Bar: document.getElementById('p2-bar'),
+            nitroBar: null
         };
+        setTimeout(() => { els.nitroBar = document.getElementById('nitro-bar'); }, 0);
+                // --- CAR SELECTION UI ---
+                function renderCarOptions() {
+                    els.carOptions.innerHTML = '';
+                    CAR_STATS.forEach((car, idx) => {
+                        const div = document.createElement('div');
+                        div.className = 'car-option';
+                        div.style.cssText = `background: ${car.color}; border-radius: 16px; padding: 1rem 0.7rem; width: 110px; box-shadow: 0 2px 0 #bbb; cursor: pointer; border: 3px solid transparent; display: flex; flex-direction: column; align-items: center;`;
+                        div.innerHTML = `<div style='width:48px;height:32px;background:${car.color};border-radius:10px 10px 16px 16px/16px 16px 10px 10px;box-shadow:0 2px 0 #333; margin-bottom: 0.5rem;'></div>
+                        <b style='color:#222;font-size:1.1em;'>${car.name}</b>
+                        <span style='font-size:0.9em;'>${car.desc}</span>
+                        <div style='font-size:0.8em;margin-top:0.5em;'>
+                            <span>🚀${car.speed}</span> <span>⚡${car.accel}</span> <span>🎯${car.handling}</span> <span>💥${car.nitro}</span>
+                        </div>`;
+                        div.onclick = () => {
+                            selectedCarIdx = idx;
+                            Array.from(els.carOptions.children).forEach((c, i) => c.style.borderColor = i === idx ? '#1CB0F6' : 'transparent');
+                            els.carConfirm.disabled = false;
+                        };
+                        els.carOptions.appendChild(div);
+                    });
+                }
+                renderCarOptions();
+                els.carConfirm.onclick = () => {
+                    if (selectedCarIdx === null) return;
+                    // Set player car stats
+                    const car = CAR_STATS[selectedCarIdx];
+                    players.p1.color = car.color;
+                    players.p1.label = car.name.toUpperCase();
+                    CONFIG.maxSpeed = car.speed;
+                    players.p1.accel = car.accel;
+                    players.p1.handling = car.handling;
+                    players.p1.nitro = car.nitro;
+                    players.p1.nitroMax = Math.round(car.nitro * 25 + 75); // scale to 100-175
+                    players.p1.nitro = players.p1.nitroMax;
+                    // Hide car select, show lobby
+                    els.carSelect.classList.add('hidden');
+                    els.lobby.classList.remove('hidden');
+                };
+
+                // Hide lobby until car is picked
+                els.lobby.classList.add('hidden');
+                els.carSelect.classList.remove('hidden');
         
         const ctx = els.canvas.getContext('2d');
 
@@ -367,15 +431,15 @@
         // --- BUTTON HANDLERS ---
         
         // Single Player
-        document.getElementById('single-player-btn').addEventListener('click', () => {
-            isSinglePlayer = true;
-            me = 'p1';
-            them = 'p2';
-            // Set rival color to red for single player to distinguish
-            players.p2.color = '#FF4B4B'; 
-            players.p2.label = 'BOT';
-            startGame();
-        });
+            document.getElementById('single-player-btn').addEventListener('click', () => {
+                isSinglePlayer = true;
+                me = 'p1';
+                them = 'p2';
+                // Set rival color to red for single player to distinguish
+                players.p2.color = '#FF4B4B'; 
+                players.p2.label = 'BOT';
+                startCountdownAndGame();
+            });
 
         // Join Friend
         els.joinBtn.addEventListener('click', () => {
@@ -389,7 +453,7 @@
                 // If I join, I am P2
                 me = 'p2';
                 them = 'p1';
-                startGame();
+                    startCountdownAndGame();
             });
 
             handleConnection(conn);
@@ -408,10 +472,10 @@
             });
             
             // If we received connection, start game
-            if (!isSinglePlayer && conn.open) {
-                 startGame();
+                if (!isSinglePlayer && conn.open) {
+                     startCountdownAndGame();
             } else if (!isSinglePlayer) {
-                conn.on('open', startGame);
+                    conn.on('open', startCountdownAndGame);
             }
         }
 
@@ -439,24 +503,98 @@
 
         function loop() {
             if (!gameActive) return;
-            update();
-            draw();
-            frameCount++;
-            requestAnimationFrame(loop);
+                // Block input during countdown
+                if (countdownActive) return;
+                update();
+                draw();
+                frameCount++;
+                requestAnimationFrame(loop);
         }
+            // --- COUNTDOWN ---
+            let countdownActive = false;
+            let countdownValue = 3;
+            let countdownInterval = null;
+
+            // Add countdown overlay
+            let countdownDiv = document.createElement('div');
+            countdownDiv.id = 'countdown-overlay';
+            countdownDiv.style.position = 'fixed';
+            countdownDiv.style.top = '0';
+            countdownDiv.style.left = '0';
+            countdownDiv.style.width = '100vw';
+            countdownDiv.style.height = '100vh';
+            countdownDiv.style.display = 'flex';
+            countdownDiv.style.alignItems = 'center';
+            countdownDiv.style.justifyContent = 'center';
+            countdownDiv.style.zIndex = '200';
+            countdownDiv.style.background = 'rgba(240,244,248,0.7)';
+            countdownDiv.style.fontFamily = "Nunito, sans-serif";
+            countdownDiv.style.fontWeight = '900';
+            countdownDiv.style.fontSize = '7rem';
+            countdownDiv.style.color = '#1CB0F6';
+            countdownDiv.style.textShadow = '0 4px 0 #fff, 0 8px 16px #1CB0F633';
+            countdownDiv.style.userSelect = 'none';
+            countdownDiv.style.pointerEvents = 'none';
+            countdownDiv.innerText = '';
+            document.body.appendChild(countdownDiv);
+            countdownDiv.style.display = 'none';
+
+            function startCountdownAndGame() {
+                els.lobby.classList.add('hidden');
+                els.game.style.display = 'flex';
+                resize();
+                generateScenery();
+                countdownValue = 3;
+                countdownActive = true;
+                countdownDiv.innerText = countdownValue;
+                countdownDiv.style.display = 'flex';
+                if (countdownInterval) clearInterval(countdownInterval);
+                countdownInterval = setInterval(() => {
+                    countdownValue--;
+                    if (countdownValue > 0) {
+                        countdownDiv.innerText = countdownValue;
+                    } else if (countdownValue === 0) {
+                        countdownDiv.innerText = 'GO!';
+                        countdownDiv.style.color = '#58CC02';
+                    } else {
+                        clearInterval(countdownInterval);
+                        countdownDiv.style.display = 'none';
+                        countdownActive = false;
+                        gameActive = true;
+                        requestAnimationFrame(loop);
+                    }
+                }, 800);
 
         function update() {
             const p = players[me];
 
+            // --- Nitro Logic ---
+            // Spacebar or Shift for nitro
+            let nitroPressed = keys[' '] || keys['Shift'] || keys['ShiftLeft'] || keys['ShiftRight'];
+            if (nitroPressed && p.nitro > 0) {
+                p.nitroActive = true;
+                p.nitroTimer++;
+                p.nitro -= 1.2 + 0.2 * (p.nitroTimer/60); // drains faster the longer you hold
+                if (p.nitro < 0) p.nitro = 0;
+            } else {
+                p.nitroActive = false;
+                p.nitroTimer = 0;
+                // Recharge slowly if not full
+                if (p.nitro < p.nitroMax) p.nitro += 0.5;
+            }
+            if (p.nitro > p.nitroMax) p.nitro = p.nitroMax;
+
             // 1. My Physics
+            let maxSpd = CONFIG.maxSpeed + (p.nitroActive ? 7 : 0);
             if (keys.ArrowUp || keys.w) {
-                p.speed < CONFIG.maxSpeed ? p.speed += 0.4 : p.speed = CONFIG.maxSpeed;
+                p.speed < maxSpd ? p.speed += 0.4 + (p.nitroActive ? 0.25 : 0) : p.speed = maxSpd;
             } else {
                 p.speed > 0 ? p.speed -= 0.3 : p.speed = 0;
             }
             // Simple lane logic
-            if ((keys.ArrowLeft || keys.a) && p.x > -150) p.x -= 6;
-            if ((keys.ArrowRight || keys.d) && p.x < 150) p.x += 6;
+            let handling = p.handling || 6;
+            if ((keys.ArrowLeft || keys.a) && p.x > -150) p.x -= handling;
+            if ((keys.ArrowRight || keys.d) && p.x < 150) p.x += handling;
 
             p.distance += p.speed;
 
@@ -466,14 +604,22 @@
                 // Rubber banding AI
                 const diff = p.distance - bot.distance;
                 let targetSpeed = CONFIG.maxSpeed * 0.92; // Base speed
-                
                 // If bot is far behind, speed up. If ahead, slow down.
                 if (diff > 500) targetSpeed = CONFIG.maxSpeed * 1.1;
                 if (diff < -500) targetSpeed = CONFIG.maxSpeed * 0.8;
-                
+                // Bot uses nitro if behind
+                if (diff > 400 && bot.nitro > 0) {
+                    bot.nitroActive = true;
+                    bot.nitro -= 1.1;
+                    targetSpeed += 5;
+                } else {
+                    bot.nitroActive = false;
+                    if (bot.nitro < bot.nitroMax) bot.nitro += 0.5;
+                }
+                if (bot.nitro < 0) bot.nitro = 0;
+                if (bot.nitro > bot.nitroMax) bot.nitro = bot.nitroMax;
                 if (bot.speed < targetSpeed) bot.speed += 0.2;
                 else bot.speed -= 0.2;
-                
                 bot.distance += bot.speed;
                 // Simple sway
                 bot.x = Math.sin(frameCount / 50) * 50;
@@ -494,6 +640,11 @@
             // 5. HUD
             els.p1Bar.style.width = `${Math.min(100, (players.p1.distance / CONFIG.totalDistance)*100)}%`;
             els.p2Bar.style.width = `${Math.min(100, (players.p2.distance / CONFIG.totalDistance)*100)}%`;
+            if (els.nitroBar) {
+                let nitroPct = Math.max(0, Math.min(100, (p.nitro / (p.nitroMax || 100)) * 100));
+                els.nitroBar.style.width = `${nitroPct}%`;
+                els.nitroBar.style.background = p.nitroActive ? '#FF4B4B' : '#FFC800';
+            }
         }
 
         function finish(winner) {
@@ -696,33 +847,41 @@
         function drawCar(ctx, x, y, color, isMe, label, scale = 1) {
             const w = 70 * scale;
             const h = 50 * scale;
-            
             ctx.save();
             ctx.translate(x, y);
-            
             // Shadow
             ctx.fillStyle = "rgba(0,0,0,0.3)";
             ctx.beginPath();
             ctx.ellipse(0, h/2, w/1.8, w/4, 0, 0, Math.PI * 2);
             ctx.fill();
-
             // Body
             ctx.fillStyle = color;
-            // Simple curvy shape
             ctx.beginPath();
             ctx.roundRect(-w/2, -h/2, w, h, 15 * scale);
             ctx.fill();
-            
+            // Nitro flames (if active)
+            if (isMe && players[me].nitroActive) {
+                ctx.save();
+                ctx.globalAlpha = 0.7;
+                ctx.fillStyle = '#FFC800';
+                ctx.beginPath();
+                ctx.ellipse(0, h/2 + 12*scale, 16*scale, 8*scale, 0, 0, Math.PI*2);
+                ctx.fill();
+                ctx.globalAlpha = 0.4;
+                ctx.fillStyle = '#FF4B4B';
+                ctx.beginPath();
+                ctx.ellipse(0, h/2 + 22*scale, 24*scale, 12*scale, 0, 0, Math.PI*2);
+                ctx.fill();
+                ctx.restore();
+            }
             // Shine
             ctx.fillStyle = "rgba(255,255,255,0.2)";
             ctx.fillRect(-w/2, -h/2, w, h/2);
-
             // Windows
             ctx.fillStyle = "#333";
             ctx.beginPath();
             ctx.roundRect(-w/2 + 5*scale, -h/2 + 5*scale, w - 10*scale, h*0.4, 5*scale);
             ctx.fill();
-
             // Label
             if (scale > 0.4) {
                 ctx.fillStyle = "white";
@@ -730,7 +889,6 @@
                 ctx.textAlign = "center";
                 ctx.fillText(label, 0, -h/2 - 10*scale);
             }
-            
             ctx.restore();
         }
 
