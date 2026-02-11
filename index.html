@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P2P Drag Race</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+</head>
+<body>
+    <div id="lobby">
+        <h2>Multiplayer Race</h2>
+        <div id="host-section">
+            <p><strong>Option 1: Host a Game</strong></p>
+            <p>Your Game ID: <span id="my-id">Generating...</span></p>
+            <p class="instruction">Share this ID with your friend.</p>
+        </div>
+        <hr>
+        <div id="join-section">
+            <p><strong>Option 2: Join a Game</strong></p>
+            <input type="text" id="join-id" placeholder="Enter Friend's ID here">
+            <button id="join-btn">Connect & Race</button>
+        </div>
+        <p id="status">Status: Waiting...</p>
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    
+    <script src="game.js"></script>
+</body>
+</html>
