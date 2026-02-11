@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Duo Racer P2P</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --duo-green: #58CC02;
+            --duo-green-shadow: #46A302;
+            --duo-blue: #1CB0F6;
+            --duo-blue-shadow: #1899D6;
+            --duo-red: #FF4B4B;
+            --duo-red-shadow: #D33131;
+            --duo-gray: #E5E5E5;
+            --duo-text: #4B4B4B;
+            --bg-color: #f7f7f7; /* Very light gray background */
+        }
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--duo-text);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            /* Subtle pattern background */
+            background-image: radial-gradient(#e0e0e0 15%, transparent 16%), radial-gradient(#e0e0e0 15%, transparent 16%);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+        }
+
+        /* --- UI CARDS --- */
+        .card {
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            border: 2px solid var(--duo-gray);
+            box-shadow: 0 4px 0 var(--duo-gray);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            transition: transform 0.2s;
+        }
+
+        h1 {
+            color: var(--duo-green);
+            font-weight: 900;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        p {
+            color: #777;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+        }
+
+        /* --- INPUTS & BUTTONS --- */
+        input[type="text"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--duo-gray);
+            border-radius: 12px;
+            font-family: 'Nunito', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--duo-text);
+            box-sizing: border-box;
+            outline: none;
+            margin-bottom: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--duo-blue);
+        }
+
+        .btn {
+            display: inline-block;
+            width: 100%;
+            padding: 14px 0;
+            font-family: 'Nunito', sans-serif;
+            font-weight: 900;
+            font-size: 1rem;
+            text-transform: uppercase;
+            color: white;
+            border: none;
+            border-radius: 16px;
+            cursor: pointer;
+            position: relative;
+            top: 0;
+            transition: all 0.1s;
+            margin-bottom: 10px;
+            letter-spacing: 0.5px;
+        }
+
+        .btn:active {
+            top: 4px;
+            box-shadow: none !important;
+        }
+
+        .btn-primary {
+            background-color: var(--duo-green);
+            box-shadow: 0 4px 0 var(--duo-green-shadow);
+        }
+
+        .btn-secondary {
+            background-color: var(--duo-blue);
+            box-shadow: 0 4px 0 var(--duo-blue-shadow);
+        }
+        
+        .btn-danger {
+            background-color: var(--duo-red);
+            box-shadow: 0 4px 0 var(--duo-red-shadow);
+        }
+
+        .hidden { display: none !important; }
+
+        /* --- GAME CONTAINER --- */
+        #game-container {
+            position: relative;
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            height: 100vh;
+        }
+
+        /* Progress Bar Area */
+        #hud {
+            position: absolute;
+            top: 20px;
+            width: 90%;
+            max-width: 800px;
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 20px;
+            border-radius: 16px;
+            border: 2px solid var(--duo-gray);
+            box-shadow: 0 4px 0 #ddd;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .progress-track {
+            height: 16px;
+            background: var(--duo-gray);
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: 8px;
+            transition: width 0.2s linear;
+        }
+
+        #p1-bar { background: var(--duo-green); }
+        #p2-bar { background: var(--duo-blue); margin-top: 4px; }
+        
+        .hud-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            font-weight: 800;
+            color: #999;
+            text-transform: uppercase;
+        }
+
+        /* The Game Canvas */
+        canvas {
+            background: #89e06b; /* Grass color */
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none; /* Prevent scrolling on mobile */
+        }
+
+        /* Modal Overlay for Game Over */
+        #modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.4);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            backdrop-filter: blur(4px);
+        }
+
+        .id-badge {
+            background: #f0f0f0;
+            padding: 8px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 1.2rem;
+            color: var(--duo-text);
+            border: 2px dashed #ccc;
+            margin: 10px 0;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- LOBBY SCREEN -->
+    <div id="lobby" class="card">
+        <h1>Duo Racer</h1>
+        <p>Challenge a friend to a language of speed!</p>
+        
+        <div id="init-panel">
+            <p id="status-msg">Connecting to global server...</p>
+            <div id="host-controls" class="hidden">
+                <div class="id-badge" id="my-peer-id">Generating ID...</div>
+                <p style="font-size: 0.9rem; margin-bottom: 0.5rem;">Share this ID with your friend</p>
+                <div style="height: 1px; background: #eee; margin: 15px 0;"></div>
+                <p style="font-size: 0.9rem; margin-bottom: 0.5rem;">Or join them:</p>
+                <input type="text" id="friend-id-input" placeholder="Paste Friend's ID here">
+                <button id="join-btn" class="btn btn-secondary">JOIN GAME</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GAME SCREEN -->
+    <div id="game-container">
+        <div id="hud">
+            <div class="hud-labels">
+                <span>YOU</span>
+                <span>FINISH</span>
+            </div>
+            <div class="progress-track"><div id="p1-bar" class="progress-fill"></div></div>
+            <div class="progress-track"><div id="p2-bar" class="progress-fill"></div></div>
+        </div>
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <!-- GAME OVER MODAL -->
+    <div id="modal-overlay">
+        <div class="card">
+            <h1 id="result-title">LESSON COMPLETE!</h1>
+            <p id="result-msg">You finished the race.</p>
+            <button onclick="location.reload()" class="btn btn-primary">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const ROAD_WIDTH_PERCENT = 0.6; // Road takes up 60% of screen width
+        const TOTAL_DISTANCE = 5000; // Distance to finish line
+        const BASE_SPEED = 10;
+        
+        // --- STATE ---
+        let peer, conn;
+        let myId, friendId;
+        let isHost = false;
+        let gameActive = false;
+        let startTime = 0;
+
+        // Player State
+        // Host is P1 (Left Lane), Joiner is P2 (Right Lane)
+        let players = {
+            p1: { x: 0, y: 0, distance: 0, speed: 0, color: '#58CC02', laneOffset: -0.15 }, // Green
+            p2: { x: 0, y: 0, distance: 0, speed: 0, color: '#1CB0F6', laneOffset: 0.15 }  // Blue
+        };
+        
+        let me = 'p1'; // Default, changes if joining
+        let them = 'p2';
+
+        // Keys
+        const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false, w: false, s: false, a: false, d: false };
+
+        // DOM Elements
+        const lobby = document.getElementById('lobby');
+        const gameContainer = document.getElementById('game-container');
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const p1Bar = document.getElementById('p1-bar');
+        const p2Bar = document.getElementById('p2-bar');
+
+        // --- PEERJS SETUP ---
+        peer = new Peer();
+
+        peer.on('open', (id) => {
+            myId = id;
+            document.getElementById('status-msg').classList.add('hidden');
+            document.getElementById('host-controls').classList.remove('hidden');
+            document.getElementById('my-peer-id').innerText = id;
+        });
+
+        peer.on('connection', (connection) => {
+            handleConnection(connection);
+        });
+
+        document.getElementById('join-btn').addEventListener('click', () => {
+            const friendIdInput = document.getElementById('friend-id-input').value.trim();
+            if (!friendIdInput) return;
+            
+            document.getElementById('join-btn').innerText = "CONNECTING...";
+            conn = peer.connect(friendIdInput);
+            handleConnection(conn);
+        });
+
+        function handleConnection(connection) {
+            conn = connection;
+            
+            conn.on('open', () => {
+                // Determine roles based on who initiated
+                // PeerJS doesn't explicitly flag "host", but the one receiving connection is usually host
+                // We will simply use the peer ID string comparison to decide lanes to keep it consistent
+                // Actually, let's keep it simple: Host (receiver) is P1, Joiner (initiator) is P2.
+                
+                // If I initiated the connection, I am P2
+                if (conn.peer === document.getElementById('friend-id-input').value.trim()) {
+                    me = 'p2';
+                    them = 'p1';
+                } else {
+                    me = 'p1';
+                    them = 'p2';
+                }
+
+                startGame();
+            });
+
+            conn.on('data', (data) => {
+                // Update opponent state
+                if (data.type === 'update') {
+                    players[them].distance = data.distance;
+                    players[them].x = data.x; // Lateral position (for visuals)
+                } else if (data.type === 'gameover') {
+                    endGame(data.winner);
+                }
+            });
+        }
+
+        // --- GAME ENGINE ---
+        function startGame() {
+            lobby.classList.add('hidden');
+            gameContainer.style.display = 'flex';
+            resizeCanvas();
+            gameActive = true;
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        // Input Handling
+        window.addEventListener('keydown', e => { if(keys.hasOwnProperty(e.key) || keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key] = true; });
+        window.addEventListener('keyup', e => { if(keys.hasOwnProperty(e.key) || keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key] = false; });
+
+        // Touch Controls for Mobile
+        let touchStartY = 0;
+        window.addEventListener('touchstart', e => { touchStartY = e.touches[0].clientY; });
+        window.addEventListener('touchmove', e => {
+            // Simple tap to accelerate logic for mobile could go here
+            // For now, let's just assume auto-accelerate on mobile or add buttons later
+            // Keeping it keyboard focused for simplicity of code block
+            keys.ArrowUp = true; 
+        });
+        window.addEventListener('touchend', () => { keys.ArrowUp = false; });
+
+
+        // Main Loop
+        function gameLoop() {
+            if (!gameActive) return;
+
+            update();
+            draw();
+            
+            // Sync Data
+            if (conn && conn.open) {
+                conn.send({
+                    type: 'update',
+                    distance: players[me].distance,
+                    x: players[me].x
+                });
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function update() {
+            const player = players[me];
+            
+            // Acceleration Logic
+            if (keys.ArrowUp || keys.w) {
+                player.speed < 20 ? player.speed += 0.5 : player.speed = 20;
+            } else {
+                player.speed > 0 ? player.speed -= 0.2 : player.speed = 0;
+            }
+            
+            // Steering (Lateral movement)
+            // Normalized X from -1 (left edge) to 1 (right edge) of their lane?
+            // Let's just do global lane shift
+            if (keys.ArrowLeft || keys.a) player.x -= 5;
+            if (keys.ArrowRight || keys.d) player.x += 5;
+
+            // Move forward
+            player.distance += player.speed;
+
+            // Constrain lateral movement visual
+            // Visual X is mostly for show in this vertical scroller
+            
+            // Check Win Condition
+            if (player.distance >= TOTAL_DISTANCE && gameActive) {
+                gameActive = false;
+                conn.send({ type: 'gameover', winner: me });
+                endGame(me);
+            }
+            
+            // Update HUD
+            const p1Pct = Math.min(100, (players.p1.distance / TOTAL_DISTANCE) * 100);
+            const p2Pct = Math.min(100, (players.p2.distance / TOTAL_DISTANCE) * 100);
+            p1Bar.style.width = `${p1Pct}%`;
+            p2Bar.style.width = `${p2Pct}%`;
+        }
+
+        function draw() {
+            const w = canvas.width;
+            const h = canvas.height;
+            const cx = w / 2;
+            const roadW = w * ROAD_WIDTH_PERCENT;
+            const laneW = roadW / 2;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // 1. Draw Grass (Background is already set via CSS, but let's add detail)
+            ctx.fillStyle = "#78C800"; // Lighter grass pattern
+            ctx.fillRect(0, 0, cx - roadW/2, h);
+            ctx.fillRect(cx + roadW/2, 0, cx - roadW/2, h);
+
+            // 2. Draw Road
+            ctx.fillStyle = "#555"; // Asphalt
+            ctx.fillRect(cx - roadW/2, 0, roadW, h);
+
+            // 3. Draw Rumble Strips (Red/White borders)
+            const stripHeight = 40;
+            const offset = -(players[me].distance % (stripHeight * 2)); // Animation scroll
+            
+            for (let y = offset - stripHeight * 2; y < h; y += stripHeight) {
+                const isRed = Math.floor((y - offset) / stripHeight) % 2 === 0;
+                ctx.fillStyle = isRed ? "#FF4B4B" : "#FFF";
+                
+                // Left Strip
+                ctx.fillRect(cx - roadW/2 - 15, y, 15, stripHeight);
+                // Right Strip
+                ctx.fillRect(cx + roadW/2, y, 15, stripHeight);
+            }
+
+            // 4. Center Line (Dashed)
+            ctx.strokeStyle = "#FFF";
+            ctx.lineWidth = 4;
+            ctx.setLineDash([30, 30]);
+            ctx.lineDashOffset = -players[me].distance; // Animate
+            ctx.beginPath();
+            ctx.moveTo(cx, 0);
+            ctx.lineTo(cx, h);
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset
+
+            // 5. Draw Finish Line (if close)
+            const remaining = TOTAL_DISTANCE - players[me].distance;
+            // Map 1 unit of distance to roughly 5 pixels on screen for visual approach
+            const finishY = -remaining * 5 + (h - 100); 
+            
+            if (finishY < h) {
+                drawCheckeredFlag(ctx, cx - roadW/2, finishY, roadW, 40);
+            }
+
+            // 6. Draw Players
+            // My Car (Always fixed at bottom center relative to screen, but moves laterally)
+            // Friend Car (Relative to me)
+            
+            // Draw Me
+            const myLaneX = cx + (players[me].laneOffset * w); 
+            // We allow slight lateral steering visual
+            drawCar(ctx, myLaneX + players[me].x, h - 150, players[me].color, true);
+
+            // Draw Opponent
+            // Calculate relative Y position
+            // If they are ahead, they are higher on screen (smaller Y)
+            // If they are behind, they are lower (larger Y)
+            const distDiff = players[them].distance - players[me].distance;
+            const relativeY = (h - 150) - (distDiff * 5); // 5 pixels per distance unit
+
+            // Only draw if visible on screen
+            if (relativeY > -100 && relativeY < h + 100) {
+                const theirLaneX = cx + (players[them].laneOffset * w);
+                drawCar(ctx, theirLaneX + players[them].x, relativeY, players[them].color, false);
+            }
+        }
+
+        function drawCar(ctx, x, y, color, isMe) {
+            const width = 60;
+            const height = 100;
+
+            ctx.save();
+            ctx.translate(x, y);
+
+            // Shadow
+            ctx.fillStyle = "rgba(0,0,0,0.3)";
+            ctx.beginPath();
+            ctx.ellipse(0, height/2 + 5, width/1.8, width/4, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Body (Rounded Rect)
+            ctx.fillStyle = color;
+            roundRect(ctx, -width/2, -height/2, width, height, 15);
+            ctx.fill();
+
+            // Roof/Windshield area
+            ctx.fillStyle = "rgba(255,255,255,0.3)";
+            roundRect(ctx, -width/2 + 5, -height/2 + 20, width - 10, 30, 5);
+            ctx.fill();
+            
+            // Spoiler / Bumper details
+            ctx.fillStyle = "rgba(0,0,0,0.1)";
+            roundRect(ctx, -width/2 + 5, height/2 - 20, width - 10, 10, 2);
+            ctx.fill();
+
+            // Label
+            if (!isMe) {
+                ctx.fillStyle = "white";
+                ctx.font = "bold 12px Nunito";
+                ctx.textAlign = "center";
+                ctx.fillText("RIVAL", 0, -height/2 - 10);
+            }
+
+            ctx.restore();
+        }
+
+        function drawCheckeredFlag(ctx, x, y, w, h) {
+            const size = 20;
+            const rows = h / size;
+            const cols = w / size;
+            
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    ctx.fillStyle = (r + c) % 2 === 0 ? "white" : "black";
+                    ctx.fillRect(x + c * size, y + r * size, size, size);
+                }
+            }
+        }
+
+        // Helper for rounded rects
+        function roundRect(ctx, x, y, w, h, r) {
+            if (w < 2 * r) r = w / 2;
+            if (h < 2 * r) r = h / 2;
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.arcTo(x + w, y, x + w, y + h, r);
+            ctx.arcTo(x + w, y + h, x, y + h, r);
+            ctx.arcTo(x, y + h, x, y, r);
+            ctx.arcTo(x, y, x + w, y, r);
+            ctx.closePath();
+        }
+
+        function endGame(winner) {
+            const modal = document.getElementById('modal-overlay');
+            const title = document.getElementById('result-title');
+            const msg = document.getElementById('result-msg');
+            
+            modal.style.display = 'flex';
+            
+            if (winner === me) {
+                title.innerText = "VICTORY!";
+                title.style.color = "#58CC02";
+                msg.innerText = "You crushed the lesson! ...I mean race.";
+            } else {
+                title.innerText = "DEFEAT";
+                title.style.color = "#FF4B4B";
+                msg.innerText = "Keep practicing to maintain your streak!";
+            }
+        }
+    </script>
+</body>
+</html>
