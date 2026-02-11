@@ -389,9 +389,10 @@
             players.p1.nitro = car.nitro;
             players.p1.nitroMax = Math.round(car.nitro * 25 + 75); // scale to 100-175
             players.p1.nitro = players.p1.nitroMax;
-            // Hide car select, show lobby
+            // Hide car select, show lobby and main menu
             els.carSelect.classList.add('hidden');
             els.lobby.classList.remove('hidden');
+            els.menu.classList.remove('hidden');
         };
         // Hide lobby until car is picked
         els.lobby.classList.add('hidden');
