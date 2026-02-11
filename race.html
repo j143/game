@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Duo Racer P2P</title>
+    <title>Duo Racer</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
@@ -14,9 +14,11 @@
             --duo-blue-shadow: #1899D6;
             --duo-red: #FF4B4B;
             --duo-red-shadow: #D33131;
+            --duo-yellow: #FFC800;
+            --duo-yellow-shadow: #D7A605;
             --duo-gray: #E5E5E5;
             --duo-text: #4B4B4B;
-            --bg-color: #f7f7f7; /* Very light gray background */
+            --bg-color: #f0f4f8; 
         }
 
         body {
@@ -31,67 +33,76 @@
             justify-content: center;
             min-height: 100vh;
             overflow: hidden;
-            /* Subtle pattern background */
-            background-image: radial-gradient(#e0e0e0 15%, transparent 16%), radial-gradient(#e0e0e0 15%, transparent 16%);
-            background-size: 20px 20px;
-            background-position: 0 0, 10px 10px;
         }
 
         /* --- UI CARDS --- */
         .card {
             background: white;
-            padding: 2rem;
-            border-radius: 20px;
+            padding: 2.5rem;
+            border-radius: 24px;
             border: 2px solid var(--duo-gray);
-            box-shadow: 0 4px 0 var(--duo-gray);
+            box-shadow: 0 6px 0 var(--duo-gray);
             text-align: center;
-            max-width: 400px;
+            max-width: 420px;
             width: 90%;
             transition: transform 0.2s;
+            z-index: 20;
+            position: relative;
         }
 
         h1 {
             color: var(--duo-green);
             font-weight: 900;
-            font-size: 2rem;
-            margin-bottom: 0.5rem;
+            font-size: 2.2rem;
+            margin: 0 0 0.5rem 0;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 1.5px;
+            text-shadow: 2px 2px 0 #daf5c6;
         }
 
         p {
-            color: #777;
+            color: #afafaf;
             font-weight: 700;
-            margin-bottom: 1.5rem;
+            margin-bottom: 2rem;
+            line-height: 1.5;
         }
 
         /* --- INPUTS & BUTTONS --- */
+        .input-group {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+
         input[type="text"] {
             width: 100%;
-            padding: 12px 16px;
+            padding: 14px 16px;
             border: 2px solid var(--duo-gray);
-            border-radius: 12px;
+            border-radius: 16px;
             font-family: 'Nunito', sans-serif;
-            font-size: 1rem;
-            font-weight: 700;
+            font-size: 1.1rem;
+            font-weight: 800;
             color: var(--duo-text);
             box-sizing: border-box;
             outline: none;
-            margin-bottom: 1rem;
-            transition: border-color 0.2s;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            background: #fdfdfd;
+            transition: all 0.2s;
         }
 
         input[type="text"]:focus {
             border-color: var(--duo-blue);
+            background: #fff;
         }
 
         .btn {
-            display: inline-block;
+            display: block;
             width: 100%;
-            padding: 14px 0;
+            padding: 16px 0;
             font-family: 'Nunito', sans-serif;
             font-weight: 900;
-            font-size: 1rem;
+            font-size: 1.1rem;
             text-transform: uppercase;
             color: white;
             border: none;
@@ -100,476 +111,627 @@
             position: relative;
             top: 0;
             transition: all 0.1s;
-            margin-bottom: 10px;
-            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+            letter-spacing: 1px;
         }
 
-        .btn:active {
-            top: 4px;
-            box-shadow: none !important;
-        }
+        .btn:active { top: 4px; box-shadow: none !important; transform: translateY(2px); }
 
-        .btn-primary {
-            background-color: var(--duo-green);
-            box-shadow: 0 4px 0 var(--duo-green-shadow);
-        }
-
-        .btn-secondary {
-            background-color: var(--duo-blue);
-            box-shadow: 0 4px 0 var(--duo-blue-shadow);
-        }
-        
-        .btn-danger {
-            background-color: var(--duo-red);
-            box-shadow: 0 4px 0 var(--duo-red-shadow);
-        }
+        .btn-primary { background-color: var(--duo-green); box-shadow: 0 5px 0 var(--duo-green-shadow); }
+        .btn-secondary { background-color: var(--duo-blue); box-shadow: 0 5px 0 var(--duo-blue-shadow); }
+        .btn-yellow { background-color: var(--duo-yellow); box-shadow: 0 5px 0 var(--duo-yellow-shadow); color: #4B4B4B; }
 
         .hidden { display: none !important; }
+        .divider { height: 2px; background: #f0f0f0; margin: 20px 0; border-radius: 2px; }
 
         /* --- GAME CONTAINER --- */
         #game-container {
-            position: relative;
-            display: none; /* Hidden by default */
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: none;
             flex-direction: column;
             align-items: center;
-            width: 100%;
-            height: 100vh;
         }
 
-        /* Progress Bar Area */
+        /* HUD */
         #hud {
             position: absolute;
             top: 20px;
             width: 90%;
-            max-width: 800px;
+            max-width: 600px;
             z-index: 10;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px 20px;
-            border-radius: 16px;
-            border: 2px solid var(--duo-gray);
-            box-shadow: 0 4px 0 #ddd;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 12px 24px;
+            border-radius: 20px;
+            border: 3px solid var(--duo-gray);
+            box-shadow: 0 6px 0 rgba(0,0,0,0.05);
             display: flex;
             flex-direction: column;
-            gap: 5px;
+            gap: 8px;
+            backdrop-filter: blur(5px);
         }
 
         .progress-track {
-            height: 16px;
-            background: var(--duo-gray);
-            border-radius: 8px;
+            height: 18px;
+            background: #eef2f5;
+            border-radius: 9px;
             position: relative;
             overflow: hidden;
             width: 100%;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
         }
 
         .progress-fill {
             height: 100%;
             width: 0%;
-            border-radius: 8px;
-            transition: width 0.2s linear;
+            border-radius: 9px;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         #p1-bar { background: var(--duo-green); }
-        #p2-bar { background: var(--duo-blue); margin-top: 4px; }
+        #p2-bar { background: var(--duo-blue); }
         
         .hud-labels {
             display: flex;
             justify-content: space-between;
-            font-size: 0.8rem;
-            font-weight: 800;
-            color: #999;
+            font-size: 0.85rem;
+            font-weight: 900;
+            color: #b0b0b0;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        /* The Game Canvas */
         canvas {
-            background: #89e06b; /* Grass color */
             display: block;
             width: 100%;
             height: 100%;
-            touch-action: none; /* Prevent scrolling on mobile */
+            touch-action: none;
         }
 
-        /* Modal Overlay for Game Over */
+        /* --- MODAL --- */
         #modal-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.4);
+            background: rgba(30, 40, 50, 0.6);
             display: none;
             align-items: center;
             justify-content: center;
             z-index: 100;
-            backdrop-filter: blur(4px);
+            backdrop-filter: blur(8px);
         }
 
-        .id-badge {
-            background: #f0f0f0;
-            padding: 8px;
-            border-radius: 8px;
-            font-family: monospace;
-            font-size: 1.2rem;
-            color: var(--duo-text);
-            border: 2px dashed #ccc;
+        .id-display {
+            font-size: 2.5rem;
+            font-weight: 900;
+            color: var(--duo-blue);
+            letter-spacing: 8px;
             margin: 10px 0;
-            word-break: break-all;
+            background: #f0f8ff;
+            padding: 10px;
+            border-radius: 12px;
+            border: 2px dashed #bce0fd;
+        }
+
+        .control-hint {
+            position: absolute;
+            bottom: 20px;
+            color: rgba(255,255,255,0.8);
+            font-weight: 700;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            pointer-events: none;
+            z-index: 5;
         }
     </style>
 </head>
 <body>
 
-    <!-- LOBBY SCREEN -->
+    <!-- LOBBY -->
     <div id="lobby" class="card">
         <h1>Duo Racer</h1>
-        <p>Challenge a friend to a language of speed!</p>
+        <p>Speed learning? No, just speed.</p>
         
-        <div id="init-panel">
-            <p id="status-msg">Connecting to global server...</p>
-            <div id="host-controls" class="hidden">
-                <div class="id-badge" id="my-peer-id">Generating ID...</div>
-                <p style="font-size: 0.9rem; margin-bottom: 0.5rem;">Share this ID with your friend</p>
-                <div style="height: 1px; background: #eee; margin: 15px 0;"></div>
-                <p style="font-size: 0.9rem; margin-bottom: 0.5rem;">Or join them:</p>
-                <input type="text" id="friend-id-input" placeholder="Paste Friend's ID here">
-                <button id="join-btn" class="btn btn-secondary">JOIN GAME</button>
+        <!-- Loading State -->
+        <div id="loading-panel">
+            <p style="color: var(--duo-blue);">Connecting to satellite...</p>
+        </div>
+
+        <!-- Main Menu -->
+        <div id="main-menu" class="hidden">
+            <button id="single-player-btn" class="btn btn-yellow">Practice Solo</button>
+            <div class="divider"></div>
+            
+            <div style="margin-bottom: 20px;">
+                <p style="margin-bottom: 10px; font-size: 0.9rem;">MULTIPLAYER</p>
+                <div class="id-display" id="my-peer-id">----</div>
+                <p style="margin-bottom: 0; font-size: 0.8rem; margin-top: 5px;">Your Room Code</p>
             </div>
+
+            <div class="input-group">
+                <input type="text" id="friend-id-input" placeholder="ENTER FRIEND'S CODE" maxlength="4">
+            </div>
+            <button id="join-btn" class="btn btn-secondary">Join Friend</button>
         </div>
     </div>
 
-    <!-- GAME SCREEN -->
+    <!-- GAME UI -->
     <div id="game-container">
         <div id="hud">
             <div class="hud-labels">
-                <span>YOU</span>
-                <span>FINISH</span>
+                <span>Distance</span>
+                <span>Goal</span>
             </div>
             <div class="progress-track"><div id="p1-bar" class="progress-fill"></div></div>
             <div class="progress-track"><div id="p2-bar" class="progress-fill"></div></div>
         </div>
         <canvas id="gameCanvas"></canvas>
+        <div class="control-hint">Tap / Up Arrow to Accelerate &bull; Left/Right to Steer</div>
     </div>
 
     <!-- GAME OVER MODAL -->
     <div id="modal-overlay">
         <div class="card">
-            <h1 id="result-title">LESSON COMPLETE!</h1>
-            <p id="result-msg">You finished the race.</p>
-            <button onclick="location.reload()" class="btn btn-primary">PLAY AGAIN</button>
+            <h1 id="result-title">FINISHED!</h1>
+            <p id="result-msg">Good game.</p>
+            <button onclick="location.reload()" class="btn btn-primary">MAIN MENU</button>
         </div>
     </div>
 
     <script>
         // --- CONFIGURATION ---
-        const ROAD_WIDTH_PERCENT = 0.6; // Road takes up 60% of screen width
-        const TOTAL_DISTANCE = 5000; // Distance to finish line
-        const BASE_SPEED = 10;
-        
+        const CONFIG = {
+            roadWidthPercent: 0.5,
+            totalDistance: 6000,
+            maxSpeed: 22,
+            colors: {
+                grassLight: "#8DE356",
+                grassDark: "#82D64D", // Slight striping
+                road: "#57606f",
+                skyTop: "#a2dbf5",
+                skyBottom: "#d8f0fa",
+                rumble1: "#ffffff",
+                rumble2: "#ff4757"
+            }
+        };
+
         // --- STATE ---
         let peer, conn;
         let myId, friendId;
-        let isHost = false;
+        let isSinglePlayer = false;
         let gameActive = false;
-        let startTime = 0;
+        let frameCount = 0;
 
         // Player State
-        // Host is P1 (Left Lane), Joiner is P2 (Right Lane)
         let players = {
-            p1: { x: 0, y: 0, distance: 0, speed: 0, color: '#58CC02', laneOffset: -0.15 }, // Green
-            p2: { x: 0, y: 0, distance: 0, speed: 0, color: '#1CB0F6', laneOffset: 0.15 }  // Blue
+            p1: { x: 0, distance: 0, speed: 0, color: '#58CC02', label: 'YOU' }, // Green
+            p2: { x: 0, distance: 0, speed: 0, color: '#1CB0F6', label: 'RIVAL' }  // Blue
         };
-        
-        let me = 'p1'; // Default, changes if joining
+        let me = 'p1';
         let them = 'p2';
 
-        // Keys
+        // Scenery Objects (Trees, bushes)
+        let scenery = [];
+        
+        // Input
         const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false, w: false, s: false, a: false, d: false };
 
-        // DOM Elements
-        const lobby = document.getElementById('lobby');
-        const gameContainer = document.getElementById('game-container');
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const p1Bar = document.getElementById('p1-bar');
-        const p2Bar = document.getElementById('p2-bar');
+        // DOM
+        const els = {
+            lobby: document.getElementById('lobby'),
+            loading: document.getElementById('loading-panel'),
+            menu: document.getElementById('main-menu'),
+            game: document.getElementById('game-container'),
+            canvas: document.getElementById('gameCanvas'),
+            myId: document.getElementById('my-peer-id'),
+            joinBtn: document.getElementById('join-btn'),
+            friendInput: document.getElementById('friend-id-input'),
+            p1Bar: document.getElementById('p1-bar'),
+            p2Bar: document.getElementById('p2-bar')
+        };
+        
+        const ctx = els.canvas.getContext('2d');
 
-        // --- PEERJS SETUP ---
-        peer = new Peer();
+        // --- INIT ---
+        // Generate a 4-letter ID
+        const generateId = () => {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let res = '';
+            for(let i=0; i<4; i++) res += chars.charAt(Math.floor(Math.random() * chars.length));
+            return res;
+        };
+
+        const shortId = generateId();
+        peer = new Peer(shortId);
 
         peer.on('open', (id) => {
+            els.loading.classList.add('hidden');
+            els.menu.classList.remove('hidden');
+            els.myId.innerText = id;
             myId = id;
-            document.getElementById('status-msg').classList.add('hidden');
-            document.getElementById('host-controls').classList.remove('hidden');
-            document.getElementById('my-peer-id').innerText = id;
+        });
+
+        peer.on('error', (err) => {
+            // Fallback if ID taken (rare)
+            if (err.type === 'unavailable-id') {
+                location.reload(); 
+            }
+            console.error(err);
         });
 
         peer.on('connection', (connection) => {
+            if (gameActive) return; // Busy
             handleConnection(connection);
         });
 
-        document.getElementById('join-btn').addEventListener('click', () => {
-            const friendIdInput = document.getElementById('friend-id-input').value.trim();
-            if (!friendIdInput) return;
+        // --- BUTTON HANDLERS ---
+        
+        // Single Player
+        document.getElementById('single-player-btn').addEventListener('click', () => {
+            isSinglePlayer = true;
+            me = 'p1';
+            them = 'p2';
+            // Set rival color to red for single player to distinguish
+            players.p2.color = '#FF4B4B'; 
+            players.p2.label = 'BOT';
+            startGame();
+        });
+
+        // Join Friend
+        els.joinBtn.addEventListener('click', () => {
+            const fid = els.friendInput.value.trim().toUpperCase();
+            if (fid.length < 4) return;
             
-            document.getElementById('join-btn').innerText = "CONNECTING...";
-            conn = peer.connect(friendIdInput);
+            els.joinBtn.innerText = "CONNECTING...";
+            conn = peer.connect(fid);
+            
+            conn.on('open', () => {
+                // If I join, I am P2
+                me = 'p2';
+                them = 'p1';
+                startGame();
+            });
+
             handleConnection(conn);
         });
 
         function handleConnection(connection) {
             conn = connection;
-            
-            conn.on('open', () => {
-                // Determine roles based on who initiated
-                // PeerJS doesn't explicitly flag "host", but the one receiving connection is usually host
-                // We will simply use the peer ID string comparison to decide lanes to keep it consistent
-                // Actually, let's keep it simple: Host (receiver) is P1, Joiner (initiator) is P2.
-                
-                // If I initiated the connection, I am P2
-                if (conn.peer === document.getElementById('friend-id-input').value.trim()) {
-                    me = 'p2';
-                    them = 'p1';
-                } else {
-                    me = 'p1';
-                    them = 'p2';
-                }
-
-                startGame();
-            });
-
+            // Common handlers
             conn.on('data', (data) => {
-                // Update opponent state
                 if (data.type === 'update') {
                     players[them].distance = data.distance;
-                    players[them].x = data.x; // Lateral position (for visuals)
+                    players[them].x = data.x;
                 } else if (data.type === 'gameover') {
                     endGame(data.winner);
                 }
             });
+            
+            // If we received connection, start game
+            if (!isSinglePlayer && conn.open) {
+                 startGame();
+            } else if (!isSinglePlayer) {
+                conn.on('open', startGame);
+            }
         }
 
-        // --- GAME ENGINE ---
+        // --- GAME LOGIC ---
         function startGame() {
-            lobby.classList.add('hidden');
-            gameContainer.style.display = 'flex';
-            resizeCanvas();
+            els.lobby.classList.add('hidden');
+            els.game.style.display = 'flex';
+            resize();
             gameActive = true;
-            requestAnimationFrame(gameLoop);
+            generateScenery();
+            requestAnimationFrame(loop);
         }
 
-        window.addEventListener('resize', resizeCanvas);
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+        function resize() {
+            els.canvas.width = window.innerWidth;
+            els.canvas.height = window.innerHeight;
         }
+        window.addEventListener('resize', resize);
 
-        // Input Handling
-        window.addEventListener('keydown', e => { if(keys.hasOwnProperty(e.key) || keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key] = true; });
-        window.addEventListener('keyup', e => { if(keys.hasOwnProperty(e.key) || keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key] = false; });
+        // Input Listeners
+        window.addEventListener('keydown', e => keys[e.key] = true);
+        window.addEventListener('keyup', e => keys[e.key] = false);
+        window.addEventListener('touchstart', () => keys.ArrowUp = true);
+        window.addEventListener('touchend', () => keys.ArrowUp = false);
 
-        // Touch Controls for Mobile
-        let touchStartY = 0;
-        window.addEventListener('touchstart', e => { touchStartY = e.touches[0].clientY; });
-        window.addEventListener('touchmove', e => {
-            // Simple tap to accelerate logic for mobile could go here
-            // For now, let's just assume auto-accelerate on mobile or add buttons later
-            // Keeping it keyboard focused for simplicity of code block
-            keys.ArrowUp = true; 
-        });
-        window.addEventListener('touchend', () => { keys.ArrowUp = false; });
-
-
-        // Main Loop
-        function gameLoop() {
+        function loop() {
             if (!gameActive) return;
-
             update();
             draw();
-            
-            // Sync Data
-            if (conn && conn.open) {
-                conn.send({
-                    type: 'update',
-                    distance: players[me].distance,
-                    x: players[me].x
-                });
-            }
-
-            requestAnimationFrame(gameLoop);
+            frameCount++;
+            requestAnimationFrame(loop);
         }
 
         function update() {
-            const player = players[me];
-            
-            // Acceleration Logic
+            const p = players[me];
+
+            // 1. My Physics
             if (keys.ArrowUp || keys.w) {
-                player.speed < 20 ? player.speed += 0.5 : player.speed = 20;
+                p.speed < CONFIG.maxSpeed ? p.speed += 0.4 : p.speed = CONFIG.maxSpeed;
             } else {
-                player.speed > 0 ? player.speed -= 0.2 : player.speed = 0;
+                p.speed > 0 ? p.speed -= 0.3 : p.speed = 0;
             }
-            
-            // Steering (Lateral movement)
-            // Normalized X from -1 (left edge) to 1 (right edge) of their lane?
-            // Let's just do global lane shift
-            if (keys.ArrowLeft || keys.a) player.x -= 5;
-            if (keys.ArrowRight || keys.d) player.x += 5;
+            // Simple lane logic
+            if ((keys.ArrowLeft || keys.a) && p.x > -150) p.x -= 6;
+            if ((keys.ArrowRight || keys.d) && p.x < 150) p.x += 6;
 
-            // Move forward
-            player.distance += player.speed;
+            p.distance += p.speed;
 
-            // Constrain lateral movement visual
-            // Visual X is mostly for show in this vertical scroller
-            
-            // Check Win Condition
-            if (player.distance >= TOTAL_DISTANCE && gameActive) {
-                gameActive = false;
-                conn.send({ type: 'gameover', winner: me });
-                endGame(me);
+            // 2. Single Player AI
+            if (isSinglePlayer) {
+                const bot = players[them];
+                // Rubber banding AI
+                const diff = p.distance - bot.distance;
+                let targetSpeed = CONFIG.maxSpeed * 0.92; // Base speed
+                
+                // If bot is far behind, speed up. If ahead, slow down.
+                if (diff > 500) targetSpeed = CONFIG.maxSpeed * 1.1;
+                if (diff < -500) targetSpeed = CONFIG.maxSpeed * 0.8;
+                
+                if (bot.speed < targetSpeed) bot.speed += 0.2;
+                else bot.speed -= 0.2;
+                
+                bot.distance += bot.speed;
+                // Simple sway
+                bot.x = Math.sin(frameCount / 50) * 50;
             }
-            
-            // Update HUD
-            const p1Pct = Math.min(100, (players.p1.distance / TOTAL_DISTANCE) * 100);
-            const p2Pct = Math.min(100, (players.p2.distance / TOTAL_DISTANCE) * 100);
-            p1Bar.style.width = `${p1Pct}%`;
-            p2Bar.style.width = `${p2Pct}%`;
+
+            // 3. Multiplayer Sync
+            if (!isSinglePlayer && conn && conn.open && frameCount % 3 === 0) {
+                conn.send({ type: 'update', distance: p.distance, x: p.x });
+            }
+
+            // 4. Win Condition
+            if (p.distance >= CONFIG.totalDistance) {
+                finish(me);
+            } else if (players[them].distance >= CONFIG.totalDistance) {
+                finish(them);
+            }
+
+            // 5. HUD
+            els.p1Bar.style.width = `${Math.min(100, (players.p1.distance / CONFIG.totalDistance)*100)}%`;
+            els.p2Bar.style.width = `${Math.min(100, (players.p2.distance / CONFIG.totalDistance)*100)}%`;
+        }
+
+        function finish(winner) {
+            gameActive = false;
+            if (!isSinglePlayer && conn && conn.open) {
+                conn.send({ type: 'gameover', winner: winner });
+            }
+            endGame(winner);
+        }
+
+        // --- RENDERING ---
+        
+        // Procedural Scenery Generation
+        function generateScenery() {
+            // Create 50 random trees/bushes along the track
+            for(let i=0; i<60; i++) {
+                scenery.push({
+                    z: Math.random() * CONFIG.totalDistance, // Position along track
+                    side: Math.random() > 0.5 ? -1 : 1, // Left or Right
+                    offset: 200 + Math.random() * 300, // Distance from road
+                    type: Math.random() > 0.7 ? 'tree' : 'bush',
+                    scale: 0.8 + Math.random() * 0.5,
+                    color: Math.random() > 0.5 ? '#7bc43d' : '#6ab035'
+                });
+            }
+            // Sort by Z so we draw far ones first (painter's algo doesn't apply strictly here due to perspective, but helpful)
+            scenery.sort((a,b) => a.z - b.z);
         }
 
         function draw() {
-            const w = canvas.width;
-            const h = canvas.height;
+            const w = els.canvas.width;
+            const h = els.canvas.height;
             const cx = w / 2;
-            const roadW = w * ROAD_WIDTH_PERCENT;
-            const laneW = roadW / 2;
+            const cy = h / 2;
 
-            ctx.clearRect(0, 0, w, h);
+            // 1. Sky
+            const grd = ctx.createLinearGradient(0, 0, 0, h/2);
+            grd.addColorStop(0, CONFIG.colors.skyTop);
+            grd.addColorStop(1, CONFIG.colors.skyBottom);
+            ctx.fillStyle = grd;
+            ctx.fillRect(0, 0, w, h);
 
-            // 1. Draw Grass (Background is already set via CSS, but let's add detail)
-            ctx.fillStyle = "#78C800"; // Lighter grass pattern
-            ctx.fillRect(0, 0, cx - roadW/2, h);
-            ctx.fillRect(cx + roadW/2, 0, cx - roadW/2, h);
+            // 2. Ground (Perspective illusion)
+            // Just fill bottom half
+            ctx.fillStyle = CONFIG.colors.grassLight;
+            ctx.fillRect(0, h/2, w, h/2);
 
-            // 2. Draw Road
-            ctx.fillStyle = "#555"; // Asphalt
-            ctx.fillRect(cx - roadW/2, 0, roadW, h);
-
-            // 3. Draw Rumble Strips (Red/White borders)
-            const stripHeight = 40;
-            const offset = -(players[me].distance % (stripHeight * 2)); // Animation scroll
+            // 3. Road Perspective
+            // We use a simple 2.5D projection
+            // Objects have a World Z (distance). Screen Y is proportional to 1/Z relative to camera.
+            // Camera Z = players[me].distance
             
-            for (let y = offset - stripHeight * 2; y < h; y += stripHeight) {
-                const isRed = Math.floor((y - offset) / stripHeight) % 2 === 0;
-                ctx.fillStyle = isRed ? "#FF4B4B" : "#FFF";
+            // To keep it simple and clean like the previous version, we will stick to 
+            // the vertical top-down-ish view but slanted, or just pure vertical scroll 
+            // with perspective width. Let's do Vertical Scroll with Perspective Width.
+            
+            const camZ = players[me].distance;
+            const roadW = w * CONFIG.roadWidthPercent;
+            const horizonY = h * 0.3; // Horizon line height
+            
+            // Draw Ground Stripes
+            const stripeH = 100;
+            const groundOffset = -(camZ % (stripeH * 2));
+            
+            // Draw Scenery first (behind road?) No, scenery sits on ground.
+            // We draw items that are visible.
+            
+            // Draw Road
+            ctx.beginPath();
+            ctx.fillStyle = CONFIG.colors.road;
+            ctx.moveTo(cx - roadW * 0.1, horizonY); // Top Left (Vanishing point ish)
+            ctx.lineTo(cx + roadW * 0.1, horizonY); // Top Right
+            ctx.lineTo(cx + roadW/2, h);            // Bottom Right
+            ctx.lineTo(cx - roadW/2, h);            // Bottom Left
+            ctx.fill();
+
+            // Draw Rumble Strips & Lane Markers
+            // We iterate from near (bottom) to far (top)
+            // However, iterating screen Y is easier.
+            const totalStripes = 20;
+            for(let i=0; i<totalStripes; i++) {
+                // Perspective math: non-linear steps
+                // Let's fake it with simple geometry for aesthetics
+                let y = h - (h - horizonY) * (i / totalStripes);
+                let nextY = h - (h - horizonY) * ((i+1) / totalStripes);
                 
-                // Left Strip
-                ctx.fillRect(cx - roadW/2 - 15, y, 15, stripHeight);
-                // Right Strip
-                ctx.fillRect(cx + roadW/2, y, 15, stripHeight);
+                let scale = 1 - (i/totalStripes); // 1 at bottom, 0 at top
+                let nextScale = 1 - ((i+1)/totalStripes);
+
+                let rw = (roadW/2) * (0.2 + 0.8*scale); // Road width at this Y
+                
+                // Movement
+                let worldZ = camZ + (1000 * (i/totalStripes)); 
+                let segmentColor = Math.floor(worldZ / 400) % 2 === 0; // Alternating segments
+
+                // Rumble Strips
+                if (segmentColor) {
+                    ctx.fillStyle = CONFIG.colors.rumble2;
+                    ctx.fillRect(cx - rw - 15*scale, nextY, 15*scale, y-nextY); // Left
+                    ctx.fillRect(cx + rw, nextY, 15*scale, y-nextY); // Right
+                } else {
+                     ctx.fillStyle = CONFIG.colors.rumble1;
+                    ctx.fillRect(cx - rw - 15*scale, nextY, 15*scale, y-nextY);
+                    ctx.fillRect(cx + rw, nextY, 15*scale, y-nextY);
+                }
+
+                // Center Line
+                if (Math.floor(worldZ / 200) % 2 === 0) {
+                     ctx.fillStyle = "#FFF";
+                     ctx.fillRect(cx - 2*scale, nextY, 4*scale, y-nextY);
+                }
             }
 
-            // 4. Center Line (Dashed)
-            ctx.strokeStyle = "#FFF";
-            ctx.lineWidth = 4;
-            ctx.setLineDash([30, 30]);
-            ctx.lineDashOffset = -players[me].distance; // Animate
-            ctx.beginPath();
-            ctx.moveTo(cx, 0);
-            ctx.lineTo(cx, h);
-            ctx.stroke();
-            ctx.setLineDash([]); // Reset
-
-            // 5. Draw Finish Line (if close)
-            const remaining = TOTAL_DISTANCE - players[me].distance;
-            // Map 1 unit of distance to roughly 5 pixels on screen for visual approach
-            const finishY = -remaining * 5 + (h - 100); 
+            // 4. Draw Scenery Objects
+            // Filter objects visible in front of camera
+            const visibleScenery = scenery.filter(obj => obj.z > camZ - 200 && obj.z < camZ + 4000);
             
-            if (finishY < h) {
-                drawCheckeredFlag(ctx, cx - roadW/2, finishY, roadW, 40);
-            }
+            // Sort: Furthest first (high Z) so near ones cover them
+            visibleScenery.sort((a,b) => b.z - a.z);
 
-            // 6. Draw Players
-            // My Car (Always fixed at bottom center relative to screen, but moves laterally)
-            // Friend Car (Relative to me)
-            
-            // Draw Me
-            const myLaneX = cx + (players[me].laneOffset * w); 
-            // We allow slight lateral steering visual
-            drawCar(ctx, myLaneX + players[me].x, h - 150, players[me].color, true);
+            visibleScenery.forEach(obj => {
+                // Projection
+                let relZ = obj.z - camZ;
+                let depth = relZ / 4000; // 0 (near) to 1 (far)
+                if (depth < 0) depth = 0;
+                
+                let y = h - (h - horizonY) * (1 - Math.pow(1-depth, 2)); // Ease out
+                let scale = (1 - depth); 
+                
+                // X position moves outward with perspective
+                let xOffset = (obj.offset + roadW * 0.5) * scale * obj.side;
+                let x = cx + xOffset;
 
-            // Draw Opponent
-            // Calculate relative Y position
-            // If they are ahead, they are higher on screen (smaller Y)
-            // If they are behind, they are lower (larger Y)
+                drawTree(ctx, x, y, scale * obj.scale, obj.color, obj.type);
+            });
+
+            // 5. Draw Cars
+            // Me
+            drawCar(ctx, cx + players[me].x, h - 120, players[me].color, true, players[me].label);
+
+            // Opponent
             const distDiff = players[them].distance - players[me].distance;
-            const relativeY = (h - 150) - (distDiff * 5); // 5 pixels per distance unit
-
-            // Only draw if visible on screen
-            if (relativeY > -100 && relativeY < h + 100) {
-                const theirLaneX = cx + (players[them].laneOffset * w);
-                drawCar(ctx, theirLaneX + players[them].x, relativeY, players[them].color, false);
-            }
-        }
-
-        function drawCar(ctx, x, y, color, isMe) {
-            const width = 60;
-            const height = 100;
-
-            ctx.save();
-            ctx.translate(x, y);
-
-            // Shadow
-            ctx.fillStyle = "rgba(0,0,0,0.3)";
-            ctx.beginPath();
-            ctx.ellipse(0, height/2 + 5, width/1.8, width/4, 0, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Body (Rounded Rect)
-            ctx.fillStyle = color;
-            roundRect(ctx, -width/2, -height/2, width, height, 15);
-            ctx.fill();
-
-            // Roof/Windshield area
-            ctx.fillStyle = "rgba(255,255,255,0.3)";
-            roundRect(ctx, -width/2 + 5, -height/2 + 20, width - 10, 30, 5);
-            ctx.fill();
+            // Map distance to screen Y using the same perspective fake
+            // This is tricky in 2.5D. We'll approximate.
+            // If they are ahead (pos diff), they move up towards horizonY.
+            // If behind, move down.
             
-            // Spoiler / Bumper details
-            ctx.fillStyle = "rgba(0,0,0,0.1)";
-            roundRect(ctx, -width/2 + 5, height/2 - 20, width - 10, 10, 2);
-            ctx.fill();
+            let rivalScale = 1;
+            let rivalY = h - 120;
 
-            // Label
-            if (!isMe) {
-                ctx.fillStyle = "white";
-                ctx.font = "bold 12px Nunito";
-                ctx.textAlign = "center";
-                ctx.fillText("RIVAL", 0, -height/2 - 10);
-            }
-
-            ctx.restore();
-        }
-
-        function drawCheckeredFlag(ctx, x, y, w, h) {
-            const size = 20;
-            const rows = h / size;
-            const cols = w / size;
-            
-            for (let r = 0; r < rows; r++) {
-                for (let c = 0; c < cols; c++) {
-                    ctx.fillStyle = (r + c) % 2 === 0 ? "white" : "black";
-                    ctx.fillRect(x + c * size, y + r * size, size, size);
+            if (Math.abs(distDiff) < 3000) {
+                // Simple linear map for demo
+                rivalY -= distDiff * 0.4; 
+                
+                // Add scaling based on Y position (pseudo perspective)
+                let progressToHorizon = (h - rivalY) / (h - horizonY);
+                rivalScale = 1 - (progressToHorizon * 0.8);
+                
+                if (rivalY > horizonY && rivalY < h + 200) {
+                     // Their X also needs to scale
+                     let theirX = (cx + players[them].x * rivalScale);
+                     // If behind, we need to invert perspective slightly or clamp
+                     drawCar(ctx, theirX, rivalY, players[them].color, false, players[them].label, rivalScale);
                 }
             }
         }
 
-        // Helper for rounded rects
-        function roundRect(ctx, x, y, w, h, r) {
-            if (w < 2 * r) r = w / 2;
-            if (h < 2 * r) r = h / 2;
+        function drawTree(ctx, x, y, s, color, type) {
+            if (s <= 0) return;
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(s, s);
+
+            if (type === 'tree') {
+                // Trunk
+                ctx.fillStyle = "#8d6e63";
+                ctx.fillRect(-10, -20, 20, 20);
+                // Leaves (Round)
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(0, -50, 40, 0, Math.PI*2);
+                ctx.fill();
+                // Shadow/Highlight
+                ctx.fillStyle = "rgba(255,255,255,0.2)";
+                ctx.beginPath();
+                ctx.arc(-10, -60, 15, 0, Math.PI*2);
+                ctx.fill();
+            } else {
+                // Bush
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(0, -10, 25, 0, Math.PI*2);
+                ctx.arc(-20, 0, 15, 0, Math.PI*2);
+                ctx.arc(20, 0, 15, 0, Math.PI*2);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        function drawCar(ctx, x, y, color, isMe, label, scale = 1) {
+            const w = 70 * scale;
+            const h = 50 * scale;
+            
+            ctx.save();
+            ctx.translate(x, y);
+            
+            // Shadow
+            ctx.fillStyle = "rgba(0,0,0,0.3)";
             ctx.beginPath();
-            ctx.moveTo(x + r, y);
-            ctx.arcTo(x + w, y, x + w, y + h, r);
-            ctx.arcTo(x + w, y + h, x, y + h, r);
-            ctx.arcTo(x, y + h, x, y, r);
-            ctx.arcTo(x, y, x + w, y, r);
-            ctx.closePath();
+            ctx.ellipse(0, h/2, w/1.8, w/4, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Body
+            ctx.fillStyle = color;
+            // Simple curvy shape
+            ctx.beginPath();
+            ctx.roundRect(-w/2, -h/2, w, h, 15 * scale);
+            ctx.fill();
+            
+            // Shine
+            ctx.fillStyle = "rgba(255,255,255,0.2)";
+            ctx.fillRect(-w/2, -h/2, w, h/2);
+
+            // Windows
+            ctx.fillStyle = "#333";
+            ctx.beginPath();
+            ctx.roundRect(-w/2 + 5*scale, -h/2 + 5*scale, w - 10*scale, h*0.4, 5*scale);
+            ctx.fill();
+
+            // Label
+            if (scale > 0.4) {
+                ctx.fillStyle = "white";
+                ctx.font = `900 ${14*scale}px Nunito`;
+                ctx.textAlign = "center";
+                ctx.fillText(label, 0, -h/2 - 10*scale);
+            }
+            
+            ctx.restore();
         }
 
         function endGame(winner) {
@@ -582,11 +744,11 @@
             if (winner === me) {
                 title.innerText = "VICTORY!";
                 title.style.color = "#58CC02";
-                msg.innerText = "You crushed the lesson! ...I mean race.";
+                msg.innerText = isSinglePlayer ? "You beat the bot!" : "You beat your friend!";
             } else {
-                title.innerText = "DEFEAT";
+                title.innerText = "SECOND PLACE";
                 title.style.color = "#FF4B4B";
-                msg.innerText = "Keep practicing to maintain your streak!";
+                msg.innerText = "Nice try!";
             }
         }
     </script>
