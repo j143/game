@@ -958,7 +958,8 @@
                 ctx.ellipse(0, h/2 + 22*scale, 24*scale, 12*scale, 0, 0, Math.PI*2);
                 ctx.fill();
                 ctx.restore();
-            }
+                }
+            // <-- MISSING CLOSING BRACE FOR drawCar
             // Drift sparks (if drifting)
             if (isMe && players[me].drifting) {
                 for (let i = 0; i < 6; i++) {
