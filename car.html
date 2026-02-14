@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Turbo Racers</title>
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --primary: #e74c3c;
+            --secondary: #3498db;
+            --text: #ffffff;
+            --panel: #2d2d2d;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        #ui-layer {
+            position: absolute;
+            z-index: 10;
+            background: rgba(45, 45, 45, 0.9);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        h1 { margin-top: 0; color: var(--primary); }
+
+        .btn {
+            background: var(--primary);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: transform 0.1s, opacity 0.2s;
+            margin: 5px;
+            width: 100%;
+        }
+
+        .btn:active { transform: scale(0.98); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-secondary { background: var(--secondary); }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 6px;
+            border: 1px solid #444;
+            background: #111;
+            color: white;
+            box-sizing: border-box;
+            font-family: monospace;
+            font-size: 1.1rem;
+            text-align: center;
+        }
+
+        #game-canvas {
+            background-color: #333;
+            background-image: 
+                linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
+            background-size: 50px 50px;
+            display: none;
+            cursor: none;
+        }
+
+        #status {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+
+        .hidden { display: none !important; }
+
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            display: none;
+        }
+
+        .player-label {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-layer">
+        <h1>Turbo Racers</h1>
+        <p>Real-time WebRTC Multiplayer</p>
+        
+        <div id="lobby">
+            <button id="btn-create" class="btn">Create New Room</button>
+            <div style="margin: 15px 0; opacity: 0.5;">— OR —</div>
+            <input type="text" id="room-input" placeholder="Enter Room ID">
+            <button id="btn-join" class="btn btn-secondary">Join Room</button>
+        </div>
+
+        <div id="waiting" class="hidden">
+            <p>Share this Room ID with a friend:</p>
+            <input type="text" id="share-id" readonly>
+            <p>Waiting for opponent...</p>
+            <button id="btn-cancel" class="btn btn-secondary">Cancel</button>
+        </div>
+
+        <div id="status">Ready to race</div>
+    </div>
+
+    <div id="hud">
+        <div class="player-label" style="color: #e74c3c">You (P1)</div>
+        <div class="player-label" style="color: #3498db">Opponent (P2)</div>
+        <div style="font-size: 0.8rem; margin-top: 10px;">Controls: Arrow Keys or WASD</div>
+    </div>
+
+    <canvas id="game-canvas"></canvas>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        // --- Config & Init ---
+        const firebaseConfig = JSON.parse(decodeURIComponent('%7B%22apiKey%22%3A%22%22%2C%22authDomain%22%3A%22undefined%22%2C%22projectId%22%3A%22undefined%22%2C%22storageBucket%22%3A%22undefined%22%2C%22messagingSenderId%22%3A%22undefined%22%2C%22appId%22%3A%22undefined%22%7D')); // Placeholder for environment config
+        
+        // In this environment, we use provided global variables
+        const actualConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : firebaseConfig;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'webrtc-car-game';
+        
+        const app = initializeApp(actualConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // WebRTC Config
+        const servers = {
+            iceServers: [
+                { urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] }
+            ],
+            iceCandidatePoolSize: 10,
+        };
+
+        // --- State ---
+        let pc = new RTCPeerConnection(servers);
+        let dataChannel = null;
+        let isHost = false;
+        let roomId = null;
+        let userId = null;
+
+        // UI Elements
+        const uiLayer = document.getElementById('ui-layer');
+        const lobby = document.getElementById('lobby');
+        const waiting = document.getElementById('waiting');
+        const statusEl = document.getElementById('status');
+        const roomInput = document.getElementById('room-input');
+        const shareIdInput = document.getElementById('share-id');
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const hud = document.getElementById('hud');
+
+        // --- Game Logic ---
+        const GAME_WIDTH = 1200;
+        const GAME_HEIGHT = 800;
+
+        class Car {
+            constructor(color, x, y) {
+                this.x = x;
+                this.y = y;
+                this.angle = 0;
+                this.speed = 0;
+                this.maxSpeed = 7;
+                this.accel = 0.2;
+                this.friction = 0.96;
+                this.color = color;
+                this.steer = 0.06;
+                this.width = 40;
+                this.height = 20;
+            }
+
+            update(keys) {
+                if (keys.up) this.speed += this.accel;
+                if (keys.down) this.speed -= this.accel;
+
+                if (Math.abs(this.speed) > 0.1) {
+                    const direction = this.speed > 0 ? 1 : -1;
+                    if (keys.left) this.angle -= this.steer * direction * (Math.abs(this.speed) / this.maxSpeed);
+                    if (keys.right) this.angle += this.steer * direction * (Math.abs(this.speed) / this.maxSpeed);
+                }
+
+                this.speed *= this.friction;
+                if (this.speed > this.maxSpeed) this.speed = this.maxSpeed;
+                if (this.speed < -this.maxSpeed / 2) this.speed = -this.maxSpeed / 2;
+
+                this.x += Math.cos(this.angle) * this.speed;
+                this.y += Math.sin(this.angle) * this.speed;
+
+                // Simple boundaries
+                this.x = Math.max(20, Math.min(GAME_WIDTH - 20, this.x));
+                this.y = Math.max(20, Math.min(GAME_HEIGHT - 20, this.y));
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+                
+                // Shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.fillRect(-this.width/2 + 3, -this.height/2 + 3, this.width, this.height);
+
+                // Body
+                ctx.fillStyle = this.color;
+                ctx.fillRect(-this.width/2, -this.height/2, this.width, this.height);
+                
+                // Windshield
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(this.width/4, -this.height/2 + 2, 5, this.height - 4);
+                
+                // Headlights
+                ctx.fillStyle = '#ff0';
+                ctx.fillRect(this.width/2 - 2, -this.height/2 + 2, 3, 4);
+                ctx.fillRect(this.width/2 - 2, this.height/2 - 6, 3, 4);
+
+                ctx.restore();
+            }
+        }
+
+        const localCar = new Car('#e74c3c', 100, 300);
+        const remoteCar = new Car('#3498db', 100, 500);
+        const keys = { up: false, down: false, left: false, right: false };
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Background grid pattern via CSS, but let's add some track markers
+            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            ctx.lineWidth = 2;
+            for(let i=0; i<canvas.width; i+=100) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+            }
+            for(let i=0; i<canvas.height; i+=100) {
+                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
+            }
+
+            localCar.update(keys);
+            
+            // Send position to peer
+            if (dataChannel && dataChannel.readyState === 'open') {
+                dataChannel.send(JSON.stringify({
+                    x: localCar.x,
+                    y: localCar.y,
+                    angle: localCar.angle,
+                    speed: localCar.speed
+                }));
+            }
+
+            localCar.draw(ctx);
+            remoteCar.draw(ctx);
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- Connection Handling ---
+        async function startSignaling() {
+            await signInAnonymously(auth);
+            userId = auth.currentUser.uid;
+        }
+
+        async function createRoom() {
+            isHost = true;
+            roomId = Math.random().toString(36).substring(2, 7).toUpperCase();
+            shareIdInput.value = roomId;
+            lobby.classList.add('hidden');
+            waiting.classList.remove('hidden');
+            statusEl.innerText = "Creating session...";
+
+            // Setup Data Channel
+            dataChannel = pc.createDataChannel('gameData', { ordered: false });
+            setupDataChannel();
+
+            // Create Offer
+            const offerDescription = await pc.createOffer();
+            await pc.setLocalDescription(offerDescription);
+
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+            const offer = {
+                sdp: offerDescription.sdp,
+                type: offerDescription.type,
+            };
+
+            await setDoc(roomRef, { offer });
+
+            // Listen for Answer
+            onSnapshot(roomRef, (snapshot) => {
+                const data = snapshot.data();
+                if (!pc.currentRemoteDescription && data?.answer) {
+                    const answerDescription = new RTCSessionDescription(data.answer);
+                    pc.setRemoteDescription(answerDescription);
+                }
+            });
+
+            // Handle ICE candidates
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    const candidatesCol = collection(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId, 'hostCandidates');
+                    addDoc(candidatesCol, event.candidate.toJSON());
+                }
+            };
+
+            const remoteCandidatesCol = collection(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId, 'guestCandidates');
+            onSnapshot(remoteCandidatesCol, (snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    if (change.type === 'added') {
+                        const candidate = new RTCIceCandidate(change.doc.data());
+                        pc.addIceCandidate(candidate);
+                    }
+                });
+            });
+        }
+
+        async function joinRoom() {
+            isHost = false;
+            roomId = roomInput.value.toUpperCase();
+            if (!roomId) return;
+
+            statusEl.innerText = "Joining room...";
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+            const roomSnapshot = await getDoc(roomRef);
+
+            if (!roomSnapshot.exists()) {
+                statusEl.innerText = "Room not found!";
+                return;
+            }
+
+            // Setup Data Channel listener
+            pc.ondatachannel = (event) => {
+                dataChannel = event.channel;
+                setupDataChannel();
+            };
+
+            const data = roomSnapshot.data();
+            const offerDescription = data.offer;
+            await pc.setRemoteDescription(new RTCSessionDescription(offerDescription));
+
+            const answerDescription = await pc.createAnswer();
+            await pc.setLocalDescription(answerDescription);
+
+            const answer = {
+                type: answerDescription.type,
+                sdp: answerDescription.sdp,
+            };
+
+            await updateDoc(roomRef, { answer });
+
+            // Handle ICE candidates
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    const candidatesCol = collection(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId, 'guestCandidates');
+                    addDoc(candidatesCol, event.candidate.toJSON());
+                }
+            };
+
+            const hostCandidatesCol = collection(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId, 'hostCandidates');
+            onSnapshot(hostCandidatesCol, (snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    if (change.type === 'added') {
+                        const candidate = new RTCIceCandidate(change.doc.data());
+                        pc.addIceCandidate(candidate);
+                    }
+                });
+            });
+        }
+
+        function setupDataChannel() {
+            dataChannel.onopen = () => {
+                statusEl.innerText = "Connected!";
+                startGame();
+            };
+            dataChannel.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                remoteCar.x = data.x;
+                remoteCar.y = data.y;
+                remoteCar.angle = data.angle;
+                remoteCar.speed = data.speed;
+            };
+            dataChannel.onclose = () => {
+                statusEl.innerText = "Disconnected";
+                location.reload();
+            };
+        }
+
+        function startGame() {
+            uiLayer.style.display = 'none';
+            canvas.style.display = 'block';
+            hud.style.display = 'block';
+            resize();
+            
+            // Swap starting positions for guest
+            if (!isHost) {
+                localCar.color = '#3498db';
+                localCar.y = 500;
+                remoteCar.color = '#e74c3c';
+                remoteCar.y = 300;
+                
+                document.querySelectorAll('.player-label')[0].style.color = '#3498db';
+                document.querySelectorAll('.player-label')[1].style.color = '#e74c3c';
+            }
+
+            window.addEventListener('keydown', handleKeyDown);
+            window.addEventListener('keyup', handleKeyUp);
+            requestAnimationFrame(gameLoop);
+        }
+
+        function handleKeyDown(e) {
+            const k = e.key.toLowerCase();
+            if (k === 'arrowup' || k === 'w') keys.up = true;
+            if (k === 'arrowdown' || k === 's') keys.down = true;
+            if (k === 'arrowleft' || k === 'a') keys.left = true;
+            if (k === 'arrowright' || k === 'd') keys.right = true;
+        }
+
+        function handleKeyUp(e) {
+            const k = e.key.toLowerCase();
+            if (k === 'arrowup' || k === 'w') keys.up = false;
+            if (k === 'arrowdown' || k === 's') keys.down = false;
+            if (k === 'arrowleft' || k === 'a') keys.left = false;
+            if (k === 'arrowright' || k === 'd') keys.right = false;
+        }
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', resize);
+        document.getElementById('btn-create').onclick = createRoom;
+        document.getElementById('btn-join').onclick = joinRoom;
+        document.getElementById('btn-cancel').onclick = () => location.reload();
+
+        // Start Auth
+        startSignaling().catch(err => {
+            console.error(err);
+            statusEl.innerText = "Auth Error. Please Refresh.";
+        });
+    </script>
+</body>
+</html>
